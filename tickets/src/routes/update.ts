@@ -5,7 +5,7 @@ import {
   NotFoundError,
   requireAuth,
   NotAuthorizedError,
-} from '@rallycoding/common';
+} from '@sgticketing/common';
 import { Ticket } from '../models/ticket';
 
 const router = express.Router();

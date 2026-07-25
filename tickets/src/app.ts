@@ -2,7 +2,7 @@ import express from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
-import { errorHandler, NotFoundError, currentUser } from '@rallycoding/common';
+import { errorHandler, NotFoundError, currentUser } from '@sgticketing/common';
 import { createTicketRouter } from './routes/new';
 import { showTicketRouter } from './routes/show';
 import { indexTicketRouter } from './routes/index';
@@ -17,7 +17,7 @@ app.use(
     secure: process.env.NODE_ENV !== 'test',
   })
 );
-app.use(currentUser);
+app.use(currentUser(process.env.JWT_KEY!));
 
 app.use(createTicketRouter);
 app.use(showTicketRouter);
