@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 
 const router = express.Router();
 
-router.get('/api/users/currentuser', currentUser(process.env.JWT_KEY!), (req: Request, res: Response) => {
+router.get('/api/users/currentuser', currentUser, (req: Request, res: Response) => {
   res.send({ currentUser: req.currentUser || null });
 });
 

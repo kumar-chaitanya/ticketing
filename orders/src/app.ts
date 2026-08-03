@@ -17,7 +17,7 @@ app.use(
     secure: process.env.NODE_ENV !== 'test',
   })
 );
-app.use(currentUser(process.env.JWT_KEY!));
+app.use(currentUser);
 
 app.use(deleteOrderRouter);
 app.use(indexOrderRouter);
