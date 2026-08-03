@@ -1,5 +1,5 @@
 import express from 'express';
-import { currentUser } from '@sgticketing/common';
+import { currentUser } from '@kumar-chaitanya/common-ticketing-service';
 import { Request, Response } from 'express'; 
 
 const router = express.Router();

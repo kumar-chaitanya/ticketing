@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { Message } from 'node-nats-streaming';
-import { OrderCancelledEvent } from '@sgticketing/common';
+import { OrderCancelledEvent } from '@kumar-chaitanya/common-ticketing-service';
 import { natsWrapper } from '../../../nats-wrapper';
 import { OrderCancelledListener } from '../order-cancelled-listener';
 import { Ticket } from '../../../models/ticket';

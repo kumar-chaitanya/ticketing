@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
-import { OrderStatus } from '@sgticketing/common';
+import { OrderStatus } from '@kumar-chaitanya/common-ticketing-service';
 
 interface OrderAttrs {
   id: string;

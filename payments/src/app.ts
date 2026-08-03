@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
-import { errorHandler, NotFoundError, currentUser } from '@sgticketing/common';
+import { errorHandler, NotFoundError, currentUser } from '@kumar-chaitanya/common-ticketing-service';
 import { createChargeRouter } from './routes/new';
 
 const app = express();

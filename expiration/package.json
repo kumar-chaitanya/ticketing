@@ -18,7 +18,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@sgticketing/common": "1.0.32",
+    "@kumar-chaitanya/common-ticketing-service": "^1.0.0",
     "@types/bull": "4.10.0",
     "bull": "4.16.3",
     "node-nats-streaming": "0.3.2",

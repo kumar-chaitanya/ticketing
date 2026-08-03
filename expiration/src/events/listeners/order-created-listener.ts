@@ -1,4 +1,4 @@
-import { Listener, OrderCreatedEvent, Subjects } from '@sgticketing/common';
+import { Listener, OrderCreatedEvent, Subjects } from '@kumar-chaitanya/common-ticketing-service';
 import { Message } from 'node-nats-streaming';
 import { queueGroupName } from './queue-group-name';
 import { expirationQueue } from '../../queues/expiration-queue';

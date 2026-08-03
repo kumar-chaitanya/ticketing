@@ -3,7 +3,7 @@ import {
   requireAuth,
   NotFoundError,
   NotAuthorizedError,
-} from '@sgticketing/common';
+} from '@kumar-chaitanya/common-ticketing-service';
 import { Order } from '../models/order';
 
 const router = express.Router();

@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { requireAuth } from '@sgticketing/common';
+import { requireAuth } from '@kumar-chaitanya/common-ticketing-service';
 import { Order } from '../models/order';
 
 const router = express.Router();

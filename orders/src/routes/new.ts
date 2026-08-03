@@ -6,7 +6,7 @@ import {
   NotFoundError,
   OrderStatus,
   BadRequestError
-} from '@sgticketing/common';
+} from '@kumar-chaitanya/common-ticketing-service';
 import { body } from 'express-validator';
 import { Ticket } from '../models/ticket';
 import { Order } from '../models/order';
