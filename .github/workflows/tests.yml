@@ -16,7 +16,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongodb-binaries-7.0.11
       - run: npm ci
+        working-directory: ${{ matrix.service }}
+      - run: npx mongodb-memory-server-core --download
         working-directory: ${{ matrix.service }}
       - run: npm run build
         working-directory: ${{ matrix.service }}
