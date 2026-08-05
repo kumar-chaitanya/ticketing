@@ -12,7 +12,7 @@ jest.mock('../nats-wrapper');
 
 let mongo: any;
 beforeAll(async () => {
-  process.env.JWT_KEY = 'asdfasdf';
+  process.env.JWT_KEY = 'mock_jwt_secret';
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
   mongo = await MongoMemoryServer.create();
