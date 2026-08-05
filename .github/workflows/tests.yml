@@ -24,8 +24,6 @@ jobs:
           key: mongodb-binaries-7.0.11
       - run: npm ci
         working-directory: ${{ matrix.service }}
-      - run: npx mongodb-memory-server-core --download
-        working-directory: ${{ matrix.service }}
       - run: npm run build
         working-directory: ${{ matrix.service }}
       - run: npm test -- --watchAll=false
