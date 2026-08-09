@@ -1,0 +1,23 @@
+global:
+  imagePullPolicy: IfNotPresent
+
+ingress:
+  host: ticketing.yourdomain.com
+
+auth:
+  replicas: 2
+
+tickets:
+  replicas: 2
+
+orders:
+  replicas: 2
+
+payments:
+  replicas: 2
+
+expiration:
+  replicas: 1
+
+client:
+  replicas: 2

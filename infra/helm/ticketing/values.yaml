@@ -1,0 +1,54 @@
+global:
+  imageRegistry: chaitanyadocker1
+  imagePullPolicy: Never
+  servicePort: 3000
+
+ingress:
+  host: ticketing.dev
+  className: nginx
+
+nats:
+  image: nats-streaming
+  imageTag: "0.17.0"
+  clusterId: ticketing
+  clientPort: 4222
+  monitorPort: 8222
+
+mongo:
+  image: mongo
+  imageTag: latest
+  port: 27017
+
+redis:
+  image: redis
+  imageTag: latest
+  port: 6379
+
+auth:
+  image: auth
+  replicas: 1
+  mongoUri: mongodb://auth-mongo-srv:27017/auth
+
+tickets:
+  image: tickets
+  replicas: 1
+  mongoUri: mongodb://tickets-mongo-srv:27017/tickets
+
+orders:
+  image: orders
+  replicas: 1
+  mongoUri: mongodb://orders-mongo-srv:27017/orders
+
+payments:
+  image: payments
+  replicas: 1
+  mongoUri: mongodb://payments-mongo-srv:27017/payments
+
+expiration:
+  image: expiration
+  replicas: 1
+  redisHost: expiration-redis-srv
+
+client:
+  image: ticketing-client
+  replicas: 1

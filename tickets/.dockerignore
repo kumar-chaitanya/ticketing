@@ -1,1 +1,8 @@
 node_modules
+build
+*.test.ts
+src/test
+src/__mocks__
+.dockerignore
+Dockerfile
+Dockerfile.prod

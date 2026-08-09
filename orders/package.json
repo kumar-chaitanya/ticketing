@@ -5,11 +5,13 @@
   "main": "index.js",
   "scripts": {
     "start": "ts-node-dev --poll src/index.ts",
+    "build": "tsc",
     "test": "jest --watchAll --no-cache"
   },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "testPathIgnorePatterns": ["/node_modules/", "/build/"],
     "setupFilesAfterEnv": [
       "./src/test/setup.ts"
     ]

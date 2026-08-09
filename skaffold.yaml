@@ -1,8 +1,12 @@
 apiVersion: skaffold/v4beta11
 kind: Config
 manifests:
-  rawYaml:
-    - ./infra/k8s/*
+  helm:
+    releases:
+      - name: ticketing
+        chartPath: ./infra/helm/ticketing
+        setValues:
+          global.imagePullPolicy: Never
 build:
   local:
     push: false
