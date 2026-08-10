@@ -2,7 +2,7 @@ import express from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
-import { errorHandler, NotFoundError } from '@kumar-chaitanya/common-ticketing-service';
+import { errorHandler, NotFoundError, metricsMiddleware, metricsEndpoint } from '@kumar-chaitanya/common-ticketing-service';
 
 import { currentUserRouter } from './routes/current-user';
 import { signinRouter } from './routes/signin';
@@ -11,6 +11,9 @@ import { signupRouter } from './routes/signup';
 
 const app = express();
 app.set('trust proxy', true);
+
+app.get('/metrics', metricsEndpoint);
+
 app.use(json());
 app.use(
   cookieSession({
@@ -18,6 +21,7 @@ app.use(
     secure: process.env.NODE_ENV !== 'test'
   })
 );
+app.use(metricsMiddleware);
 
 app.use(currentUserRouter);
 app.use(signinRouter);

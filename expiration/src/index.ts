@@ -1,5 +1,19 @@
+import http from 'http';
+import client from 'prom-client';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
+
+client.collectDefaultMetrics();
+
+const metricsServer = http.createServer(async (req, res) => {
+  if (req.url === '/metrics') {
+    res.setHeader('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  } else {
+    res.statusCode = 404;
+    res.end();
+  }
+});
 
 const start = async () => {
   if (!process.env.NATS_CLIENT_ID) {
@@ -26,6 +40,10 @@ const start = async () => {
     process.on('SIGTERM', () => natsWrapper.client.close());
 
     new OrderCreatedListener(natsWrapper.client).listen();
+
+    metricsServer.listen(3000, () => {
+      console.log('Metrics server listening on port 3000');
+    });
   } catch (err) {
     console.error(err);
   }
