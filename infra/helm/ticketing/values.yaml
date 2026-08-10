@@ -1,6 +1,6 @@
 global:
   imageRegistry: chaitanyadocker1
-  imagePullPolicy: Never
+  imagePullPolicy: IfNotPresent
   servicePort: 3000
 
 ingress:

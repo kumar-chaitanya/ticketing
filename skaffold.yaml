@@ -5,11 +5,9 @@ manifests:
     releases:
       - name: ticketing
         chartPath: ./infra/helm/ticketing
-        setValues:
-          global.imagePullPolicy: Never
 build:
   local:
-    push: false
+    push: true
   artifacts:
     - image: chaitanyadocker1/auth
       context: auth
