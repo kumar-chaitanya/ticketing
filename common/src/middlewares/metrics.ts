@@ -1,47 +1,58 @@
 import client from 'prom-client';
 import { Request, Response, NextFunction } from 'express';
 
-client.collectDefaultMetrics();
+export class Metrics {
+  private static instance: Metrics;
+  private httpRequestDuration: client.Histogram<string>;
+  private httpRequestsTotal: client.Counter<string>;
 
-const httpRequestDuration = new client.Histogram({
-  name: 'http_request_duration_seconds',
-  help: 'Duration of HTTP requests in seconds',
-  labelNames: ['method', 'route', 'status_code'],
-  buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
-});
+  private constructor() {
+    client.collectDefaultMetrics();
 
-const httpRequestsTotal = new client.Counter({
-  name: 'http_requests_total',
-  help: 'Total number of HTTP requests',
-  labelNames: ['method', 'route', 'status_code'],
-});
+    this.httpRequestDuration = new client.Histogram({
+      name: 'http_request_duration_seconds',
+      help: 'Duration of HTTP requests in seconds',
+      labelNames: ['method', 'route', 'status_code'],
+      buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+    });
 
-export function metricsMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  if (req.path === '/metrics') {
-    return next();
+    this.httpRequestsTotal = new client.Counter({
+      name: 'http_requests_total',
+      help: 'Total number of HTTP requests',
+      labelNames: ['method', 'route', 'status_code'],
+    });
   }
 
-  const end = httpRequestDuration.startTimer();
+  static getInstance() {
+    if (!Metrics.instance) {
+      Metrics.instance = new Metrics();
+    }
+    return Metrics.instance;
+  }
 
-  res.on('finish', () => {
-    const route = req.route?.path || req.path;
-    const labels = {
-      method: req.method,
-      route,
-      status_code: res.statusCode.toString(),
-    };
-    end(labels);
-    httpRequestsTotal.inc(labels);
-  });
+  middleware = (req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/metrics') {
+      return next();
+    }
 
-  next();
-}
+    const end = this.httpRequestDuration.startTimer();
 
-export async function metricsEndpoint(_req: Request, res: Response) {
-  res.set('Content-Type', client.register.contentType);
-  res.end(await client.register.metrics());
+    res.on('finish', () => {
+      const route = req.route?.path || req.path;
+      const labels = {
+        method: req.method,
+        route,
+        status_code: res.statusCode.toString(),
+      };
+      end(labels);
+      this.httpRequestsTotal.inc(labels);
+    });
+
+    next();
+  };
+
+  endpoint = async (_req: Request, res: Response) => {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+  };
 }
