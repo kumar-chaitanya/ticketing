@@ -27,3 +27,16 @@ spec:
               value: {{ .Values.nats.clusterId }}
             - name: REDIS_HOST
               value: {{ .Values.expiration.redisHost }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expiration-srv
+spec:
+  selector:
+    app: expiration
+  ports:
+    - name: metrics
+      protocol: TCP
+      port: {{ .Values.global.servicePort }}
+      targetPort: {{ .Values.global.servicePort }}
