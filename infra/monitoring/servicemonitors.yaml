@@ -1,0 +1,94 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auth-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  endpoints:
+    - interval: 15s
+      port: auth
+      path: /metrics
+  selector:
+    matchLabels:
+      app: auth
+  namespaceSelector:
+    matchNames:
+      - default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tickets-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  endpoints:
+    - interval: 15s
+      port: tickets
+      path: /metrics
+  selector:
+    matchLabels:
+      app: tickets
+  namespaceSelector:
+    matchNames:
+      - default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: orders-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  endpoints:
+    - interval: 15s
+      port: orders
+      path: /metrics
+  selector:
+    matchLabels:
+      app: orders
+  namespaceSelector:
+    matchNames:
+      - default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: payments-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  endpoints:
+    - interval: 15s
+      port: payments
+      path: /metrics
+  selector:
+    matchLabels:
+      app: payments
+  namespaceSelector:
+    matchNames:
+      - default
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: expiration-service-monitor
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  endpoints:
+    - interval: 15s
+      port: metrics
+      path: /metrics
+  selector:
+    matchLabels:
+      app: expiration
+  namespaceSelector:
+    matchNames:
+      - default

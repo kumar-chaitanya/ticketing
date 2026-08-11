@@ -1,6 +1,14 @@
 grafana:
   adminPassword: prom-operator
 
+prometheus:
+  prometheusSpec:
+    # Discover ServiceMonitors/PodMonitors from any namespace (not only chart defaults)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}
+
 alertmanager:
   alertmanagerSpec:
     # Selects Alertmanager configuration based on these labels. Ensure that the Alertmanager configuration has matching labels.
