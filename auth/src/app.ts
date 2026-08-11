@@ -2,17 +2,19 @@ import express from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
-import { errorHandler, NotFoundError, metricsMiddleware, metricsEndpoint } from '@kumar-chaitanya/common-ticketing-service';
+import { errorHandler, NotFoundError, Metrics } from '@kumar-chaitanya/common-ticketing-service';
 
 import { currentUserRouter } from './routes/current-user';
 import { signinRouter } from './routes/signin';
 import { signoutRouter } from './routes/signout';
 import { signupRouter } from './routes/signup';
 
+const metrics = Metrics.getInstance();
+
 const app = express();
 app.set('trust proxy', true);
 
-app.get('/metrics', metricsEndpoint);
+app.get('/metrics', metrics.endpoint);
 
 app.use(json());
 app.use(
@@ -21,7 +23,7 @@ app.use(
     secure: process.env.NODE_ENV !== 'test'
   })
 );
-app.use(metricsMiddleware);
+app.use(metrics.middleware);
 
 app.use(currentUserRouter);
 app.use(signinRouter);
