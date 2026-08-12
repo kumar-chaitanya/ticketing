@@ -29,6 +29,7 @@
     "express-validator": "7.2.0",
     "jsonwebtoken": "9.0.2",
     "node-nats-streaming": "0.3.2",
+    "pino": "10.3.1",
     "prom-client": "^15.1.3"
   }
 }
