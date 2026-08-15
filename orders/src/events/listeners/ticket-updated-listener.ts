@@ -2,6 +2,7 @@ import { Message } from 'node-nats-streaming';
 import { Subjects, Listener, TicketUpdatedEvent } from '@kumar-chaitanya/common-ticketing-service';
 import { Ticket } from '../../models/ticket';
 import { queueGroupName } from './queue-group-name';
+import { logger } from '../../logger';
 
 export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
   subject: Subjects.TicketUpdated = Subjects.TicketUpdated;
@@ -17,6 +18,11 @@ export class TicketUpdatedListener extends Listener<TicketUpdatedEvent> {
     const { title, price } = data;
     ticket.set({ title, price });
     await ticket.save();
+
+    logger.info('Ticket updated in orders service', {
+      ticketId: ticket.id,
+      version: data.version,
+    });
 
     msg.ack();
   }

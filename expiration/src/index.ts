@@ -2,6 +2,7 @@ import http from 'http';
 import client from 'prom-client';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
+import { logger } from './logger';
 
 client.collectDefaultMetrics();
 
@@ -33,7 +34,7 @@ const start = async () => {
       process.env.NATS_URL
     );
     natsWrapper.client.on('close', () => {
-      console.log('NATS connection closed!');
+      logger.info('NATS connection closed');
       process.exit();
     });
     process.on('SIGINT', () => natsWrapper.client.close());
@@ -42,10 +43,10 @@ const start = async () => {
     new OrderCreatedListener(natsWrapper.client).listen();
 
     metricsServer.listen(3000, () => {
-      console.log('Metrics server listening on port 3000');
+      logger.info('Metrics server listening on port 3000');
     });
   } catch (err) {
-    console.error(err);
+    logger.error('Failed to start expiration service', { err });
   }
 };
 

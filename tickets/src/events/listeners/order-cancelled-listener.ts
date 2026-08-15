@@ -3,6 +3,7 @@ import { Message } from 'node-nats-streaming';
 import { queueGroupName } from './queue-group-name';
 import { Ticket } from '../../models/ticket';
 import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
+import { logger } from '../../logger';
 
 export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
   subject: Subjects.OrderCancelled = Subjects.OrderCancelled;
@@ -24,6 +25,11 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
       price: ticket.price,
       title: ticket.title,
       version: ticket.version,
+    });
+
+    logger.info('Ticket reservation released', {
+      ticketId: ticket.id,
+      orderId: data.id,
     });
 
     msg.ack();

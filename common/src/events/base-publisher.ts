@@ -1,10 +1,13 @@
 import { Stan } from 'node-nats-streaming';
 import { Subjects } from './subjects';
+import { Logger } from '../logger';
 
 interface Event {
   subject: Subjects;
   data: any;
 }
+
+const logger = new Logger('nats');
 
 export abstract class Publisher<T extends Event> {
   abstract subject: T['subject'];
@@ -20,7 +23,7 @@ export abstract class Publisher<T extends Event> {
         if (err) {
           return reject(err);
         }
-        console.log('Event published to subject', this.subject);
+        logger.info('Event published', { subject: this.subject });
         resolve();
       });
     });

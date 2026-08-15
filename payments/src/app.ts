@@ -2,8 +2,15 @@ import express, { Request, Response } from 'express';
 import 'express-async-errors';
 import { json } from 'body-parser';
 import cookieSession from 'cookie-session';
-import { errorHandler, NotFoundError, currentUser, Metrics } from '@kumar-chaitanya/common-ticketing-service';
+import {
+  errorHandler,
+  NotFoundError,
+  currentUser,
+  Metrics,
+  requestLogger,
+} from '@kumar-chaitanya/common-ticketing-service';
 import { createChargeRouter } from './routes/new';
+import { logger } from './logger';
 
 const metrics = Metrics.getInstance();
 
@@ -19,6 +26,7 @@ app.use(
     secure: process.env.NODE_ENV !== 'test',
   })
 );
+app.use(requestLogger(logger));
 app.use(metrics.middleware);
 app.use(currentUser);
 
@@ -28,6 +36,6 @@ app.all('*', async (req: Request, res: Response) => {
   throw new NotFoundError();
 });
 
-app.use(errorHandler);
+app.use(errorHandler(logger));
 
 export { app };

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 import { app } from './app';
+import { logger } from './logger';
 
 const start = async () => {
   if (!process.env.JWT_KEY) {
@@ -14,14 +15,14 @@ const start = async () => {
     await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 30000
     });
-    
-    console.log('Connected to MongoDb');
+
+    logger.info('Connected to MongoDb');
   } catch (err) {
-    console.error(err);
+    logger.error('Failed to connect to MongoDb', { err });
   }
 
   app.listen(3000, () => {
-    console.log('Listening on port 3000!!!!!!!!');
+    logger.info('Listening on port 3000');
   });
 };
 

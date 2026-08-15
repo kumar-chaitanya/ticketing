@@ -2,6 +2,7 @@ import { Message } from 'node-nats-streaming';
 import { Subjects, Listener, TicketCreatedEvent } from '@kumar-chaitanya/common-ticketing-service';
 import { Ticket } from '../../models/ticket';
 import { queueGroupName } from './queue-group-name';
+import { logger } from '../../logger';
 
 export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
   subject: Subjects.TicketCreated = Subjects.TicketCreated;
@@ -16,6 +17,8 @@ export class TicketCreatedListener extends Listener<TicketCreatedEvent> {
       price,
     });
     await ticket.save();
+
+    logger.info('Ticket created in orders service', { ticketId: id });
 
     msg.ack();
   }

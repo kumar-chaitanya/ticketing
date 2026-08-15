@@ -8,6 +8,7 @@ import { Message } from 'node-nats-streaming';
 import { queueGroupName } from './queue-group-name';
 import { Order } from '../../models/order';
 import { OrderCancelledPublisher } from '../publishers/order-cancelled-publisher';
+import { logger } from '../../logger';
 
 export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent> {
   queueGroupName = queueGroupName;
@@ -21,6 +22,9 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
     }
 
     if (order.status === OrderStatus.Complete) {
+      logger.info('Ignoring expiration for completed order', {
+        orderId: order.id,
+      });
       return msg.ack();
     }
 
@@ -35,6 +39,8 @@ export class ExpirationCompleteListener extends Listener<ExpirationCompleteEvent
         id: order.ticket.id,
       },
     });
+
+    logger.info('Order cancelled due to expiration', { orderId: order.id });
 
     msg.ack();
   }
