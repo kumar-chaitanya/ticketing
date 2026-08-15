@@ -1,3 +1,4 @@
+import './tracing';
 import http from 'http';
 import client from 'prom-client';
 import { natsWrapper } from './nats-wrapper';

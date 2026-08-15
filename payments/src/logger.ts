@@ -1,3 +1,3 @@
 import { Logger } from '@kumar-chaitanya/common-ticketing-service';
 
-export const logger = new Logger('payments');
+export const logger = new Logger(process.env.OTEL_SERVICE_NAME || 'payments');

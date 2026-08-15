@@ -37,6 +37,10 @@ spec:
                 secretKeyRef:
                   name: stripe-secret
                   key: STRIPE_KEY
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.payments.image }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.global.otelExporterOtlpEndpoint }}
 ---
 apiVersion: v1
 kind: Service

@@ -2,6 +2,7 @@ global:
   imageRegistry: chaitanyadocker1
   imagePullPolicy: IfNotPresent
   servicePort: 3000
+  otelExporterOtlpEndpoint: http://tempo.tracing.svc.cluster.local:4318/v1/traces
 
 ingress:
   host: ticketing.dev

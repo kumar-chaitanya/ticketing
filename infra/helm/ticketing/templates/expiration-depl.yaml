@@ -27,6 +27,10 @@ spec:
               value: {{ .Values.nats.clusterId }}
             - name: REDIS_HOST
               value: {{ .Values.expiration.redisHost }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.expiration.image }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.global.otelExporterOtlpEndpoint }}
 ---
 apiVersion: v1
 kind: Service

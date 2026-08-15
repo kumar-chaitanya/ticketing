@@ -32,6 +32,10 @@ spec:
                 secretKeyRef:
                   name: jwt-secret
                   key: JWT_KEY
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.tickets.image }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.global.otelExporterOtlpEndpoint }}
 ---
 apiVersion: v1
 kind: Service

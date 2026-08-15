@@ -1,10 +1,12 @@
 import Queue from 'bull';
+import { context, propagation } from '@opentelemetry/api';
 import { ExpirationCompletePublisher } from '../events/publishers/expiration-complete-publisher';
 import { natsWrapper } from '../nats-wrapper';
 import { logger } from '../logger';
 
 interface Payload {
   orderId: string;
+  _traceContext?: Record<string, string>;
 }
 
 const expirationQueue = new Queue<Payload>('order:expiration', {
@@ -14,12 +16,15 @@ const expirationQueue = new Queue<Payload>('order:expiration', {
 });
 
 expirationQueue.process(async (job) => {
-  logger.info('Processing order expiration job', {
-    orderId: job.data.orderId,
-  });
+  const { orderId, _traceContext } = job.data;
+  const parentCtx = propagation.extract(context.active(), _traceContext || {});
 
-  new ExpirationCompletePublisher(natsWrapper.client).publish({
-    orderId: job.data.orderId,
+  await context.with(parentCtx, async () => {
+    logger.info('Processing order expiration job', { orderId });
+
+    await new ExpirationCompletePublisher(natsWrapper.client).publish({
+      orderId,
+    });
   });
 });
 
