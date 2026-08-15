@@ -7,6 +7,7 @@ import {
 import { Order, OrderStatus } from '../models/order';
 import { OrderCancelledPublisher } from '../events/publishers/order-cancelled-publisher';
 import { natsWrapper } from '../nats-wrapper';
+import { logger } from '../logger';
 
 const router = express.Router();
 
@@ -27,13 +28,17 @@ router.delete(
     order.status = OrderStatus.Cancelled;
     await order.save();
 
-    // publishing an event saying this was cancelled!
     new OrderCancelledPublisher(natsWrapper.client).publish({
       id: order.id,
       version: order.version,
       ticket: {
         id: order.ticket.id
       }
+    });
+
+    logger.info('Order cancelled by user', {
+      orderId: order.id,
+      userId: order.userId,
     });
 
     res.status(204).send(order);

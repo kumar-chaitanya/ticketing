@@ -7,6 +7,7 @@ import {
 import { Message } from 'node-nats-streaming';
 import { queueGroupName } from './queue-group-name';
 import { Order } from '../../models/order';
+import { logger } from '../../logger';
 
 export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
   subject: Subjects.OrderCancelled = Subjects.OrderCancelled;
@@ -24,6 +25,8 @@ export class OrderCancelledListener extends Listener<OrderCancelledEvent> {
 
     order.set({ status: OrderStatus.Cancelled });
     await order.save();
+
+    logger.info('Order cancelled in payments service', { orderId: order.id });
 
     msg.ack();
   }
