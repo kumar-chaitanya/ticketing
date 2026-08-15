@@ -1,4 +1,5 @@
 import { Message, Stan } from 'node-nats-streaming';
+import { context, propagation } from '@opentelemetry/api';
 import { Subjects } from './subjects';
 import { Logger } from '../logger';
 
@@ -37,13 +38,21 @@ export abstract class Listener<T extends Event> {
     );
 
     subscription.on('message', (msg: Message) => {
-      logger.info('Message received', {
-        subject: this.subject,
-        queueGroupName: this.queueGroupName,
-      });
-
       const parsedData = this.parseMessage(msg);
-      this.onMessage(parsedData, msg);
+      const { _traceContext, ...eventData } = parsedData;
+
+      const extractedContext = propagation.extract(
+        context.active(),
+        _traceContext || {}
+      );
+
+      context.with(extractedContext, () => {
+        logger.info('Message received', {
+          subject: this.subject,
+          queueGroupName: this.queueGroupName,
+        });
+        this.onMessage(eventData as T['data'], msg);
+      });
     });
   }
 
