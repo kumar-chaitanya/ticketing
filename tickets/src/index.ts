@@ -4,6 +4,7 @@ import { app } from './app';
 import { natsWrapper } from './nats-wrapper';
 import { OrderCreatedListener } from './events/listeners/order-created-listener';
 import { OrderCancelledListener } from './events/listeners/order-cancelled-listener';
+import { logger } from './logger';
 
 const start = async () => {
   if (!process.env.JWT_KEY) {
@@ -29,7 +30,7 @@ const start = async () => {
       process.env.NATS_URL
     );
     natsWrapper.client.on('close', () => {
-      console.log('NATS connection closed!');
+      logger.info('NATS connection closed');
       process.exit();
     });
     process.on('SIGINT', () => natsWrapper.client.close());
@@ -39,14 +40,14 @@ const start = async () => {
     await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 30000
     });
-    
-    console.log('Connected to MongoDb');
+
+    logger.info('Connected to MongoDb');
   } catch (err) {
-    console.error(err);
+    logger.error('Failed to start tickets service', { err });
   }
 
   app.listen(3000, () => {
-    console.log('Listening on port 3000!!!!!!!!');
+    logger.info('Listening on port 3000');
   });
 };
 
