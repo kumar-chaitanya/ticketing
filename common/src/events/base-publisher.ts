@@ -19,18 +19,21 @@ export abstract class Publisher<T extends Event> {
   }
 
   publish(data: T['data']): Promise<void> {
+    const activeContext = context.active();
     const carrier: Record<string, string> = {};
-    propagation.inject(context.active(), carrier);
+    propagation.inject(activeContext, carrier);
 
     const dataWithTrace = { ...data, _traceContext: carrier };
 
     return new Promise((resolve, reject) => {
       this.client.publish(this.subject, JSON.stringify(dataWithTrace), (err) => {
-        if (err) {
-          return reject(err);
-        }
-        logger.info('Event published', { subject: this.subject });
-        resolve();
+        context.with(activeContext, () => {
+          if (err) {
+            return reject(err);
+          }
+          logger.info('Event published', { subject: this.subject });
+          resolve();
+        });
       });
     });
   }
