@@ -1,5 +1,5 @@
 import Queue from 'bull';
-import { context, propagation } from '@opentelemetry/api';
+import { context, propagation, trace } from '@opentelemetry/api';
 import { ExpirationCompletePublisher } from '../events/publishers/expiration-complete-publisher';
 import { natsWrapper } from '../nats-wrapper';
 import { logger } from '../logger';
@@ -17,15 +17,25 @@ const expirationQueue = new Queue<Payload>('order:expiration', {
 
 expirationQueue.process(async (job) => {
   const { orderId, _traceContext } = job.data;
-  const parentCtx = propagation.extract(context.active(), _traceContext || {});
 
-  await context.with(parentCtx, async () => {
-    logger.info('Processing order expiration job', { orderId });
+  const linkedCtx = propagation.extract(context.active(), _traceContext || {});
+  const linkedSpan = trace.getSpan(linkedCtx);
+  const links = linkedSpan ? [{ context: linkedSpan.spanContext() }] : [];
 
-    await new ExpirationCompletePublisher(natsWrapper.client).publish({
-      orderId,
+  const tracer = trace.getTracer('expiration');
+  const span = tracer.startSpan('process order expiration', { links });
+
+  try {
+    await context.with(trace.setSpan(context.active(), span), async () => {
+      logger.info('Processing order expiration job', { orderId });
+
+      await new ExpirationCompletePublisher(natsWrapper.client).publish({
+        orderId,
+      });
     });
-  });
+  } finally {
+    span.end();
+  }
 });
 
 export { expirationQueue };
