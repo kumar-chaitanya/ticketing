@@ -10,7 +10,7 @@ This README is also a **revision guide**: architecture, observability, local wor
 - **Buyers** browse tickets, place orders (15-minute time-limited reservations), and pay with Stripe.
 - Each business domain is its own service with its own database.
 - Cross-service consistency is handled with domain events and optimistic concurrency control (not shared DB joins).
-- **Observability:** Prometheus metrics + structured Pino logs → Loki, visualized in Grafana.
+- **Observability:** Prometheus metrics, structured Pino logs → Loki, and OpenTelemetry traces → Tempo, all visualized in Grafana.
 
 ## Architecture
 
@@ -49,21 +49,17 @@ This README is also a **revision guide**: architecture, observability, local wor
 ```text
 default (app)
   auth | tickets | orders | payments | expiration | client
-       |              stdout JSON (Pino)
-       |              /metrics (prom-client)
-       v
-┌──────────────────────────────────────────────────────────┐
-│  monitoring ns                                           │
-│  kube-prometheus-stack: Prometheus, Grafana, Alertmanager│
-│  ServiceMonitors scrape app Services on :3000/metrics    │
-└──────────────────────────────────────────────────────────┘
-       ^
-       | Grafana also queries Loki
-       v
-┌──────────────────────────────────────────────────────────┐
-│  logging ns                                              │
-│  Promtail (DaemonSet) ──push──> Loki (SingleBinary)      │
-└──────────────────────────────────────────────────────────┘
+       |  stdout JSON (Pino)     /metrics     OTLP traces
+       v                         v            v
+┌────────────────────┐  ┌─────────────────┐  ┌──────────────────────────┐
+│ logging ns         │  │ monitoring ns   │  │ tracing ns               │
+│ Promtail ──> Loki  │  │ Prometheus      │  │ Tempo (OTLP :4318)       │
+└────────────────────┘  │ Grafana         │  └──────────────────────────┘
+                        │ Alertmanager    │
+                        └────────┬────────┘
+                                 │ queries Loki + Prometheus + Tempo
+                                 v
+                              Grafana UI
 ```
 
 ### Services
@@ -76,7 +72,7 @@ default (app)
 | **payments** | Charge Stripe; record payments | `/api/payments` | MongoDB | Yes |
 | **expiration** | Delayed job per order; emits `expiration:complete` | *(none)* | Redis (Bull) | Yes |
 | **client** | Next.js UI (Pages Router) | `/` | — | No (HTTP to APIs) |
-| **common** | Shared errors, middlewares, logger, metrics, events | — | — | — |
+| **common** | Shared errors, middlewares, logger, metrics, events, NATS trace propagation | — | — | — |
 
 Supporting infra:
 
@@ -89,6 +85,7 @@ Supporting infra:
 | **Helm chart** | `infra/helm/ticketing` (used by Skaffold) |
 | **Prometheus stack** | `monitoring` namespace |
 | **Loki + Promtail** | `logging` namespace |
+| **Tempo** | `tracing` namespace (OTLP receiver) |
 
 ## API Routes
 
@@ -204,19 +201,21 @@ Supporting infra:
 
 ### Shared common package (`@kumar-chaitanya/common-ticketing-service`)
 
-Current published line: **1.0.4** (source in `common/`).
+Current published line: **1.0.7** (source in `common/`).
 
 | Export | Purpose |
 |--------|---------|
-| `Logger` | Pino wrapper: `new Logger('orders')` → JSON logs with `service` field |
+| `Logger` | Pino wrapper: JSON logs with `service` field |
 | `requestLogger(logger)` | HTTP access log (skips `/metrics`) |
 | `errorHandler(logger)` | Factory; logs CustomError as warn, others as error |
 | `Metrics` | Singleton `prom-client` counter + histogram; `/metrics` + middleware |
+| `Publisher` | Injects `_traceContext` into every NATS payload |
+| `Listener` | Extracts `_traceContext` and runs `onMessage` in that context |
 
 Each service wires:
 
 ```ts
-export const logger = new Logger('auth'); // or tickets, orders, ...
+export const logger = new Logger(process.env.OTEL_SERVICE_NAME || 'auth');
 
 app.use(requestLogger(logger));
 app.use(metrics.middleware);
@@ -224,11 +223,16 @@ app.use(metrics.middleware);
 app.use(errorHandler(logger));
 ```
 
+`import './tracing'` is the **first line** of each service `index.ts` so auto-instrumentation patches Express, Mongoose, MongoDB, and Pino before those modules load.
+
 Domain / NATS logs (examples):
 
-- Startup: Mongo, NATS, listen
+- Startup: Mongo, NATS, listen (no `trace_id` — no request span exists)
+- HTTP: `request completed`, `Order created`, `Payment created`
 - Listeners: ticket reserved, order created, payment created, expiration scheduled
-- Common `Listener` / `Publisher` base classes log `Message received` / `Event published` with `service: "nats"`
+- Common `Listener` / `Publisher` log `Message received` / `Event published` with `service: "nats"`
+
+Pino auto-instrumentation adds `trace_id`, `span_id`, and `trace_flags` when an active span exists.
 
 ### Metrics
 
@@ -244,7 +248,7 @@ Domain / NATS logs (examples):
 | App stdout (Pino JSON) | `default` | Structured logs |
 | Promtail | `logging` | DaemonSet; ships pod logs to Loki |
 | Loki | `logging` | Log store (SingleBinary + gateway) |
-| Grafana | `monitoring` | UI for Prometheus + Loki |
+| Grafana | `monitoring` | UI for Prometheus + Loki + Tempo |
 
 Values files:
 
@@ -252,12 +256,60 @@ Values files:
 - `infra/logging/promtail-values.yaml`
 - `infra/monitoring/custom_kube_prometheus_stack.yaml` (includes Loki datasource)
 
+### Tracing pipeline
+
+| Piece | Namespace | Role |
+|-------|-----------|------|
+| `src/tracing.ts` (per service) | `default` | NodeSDK + OTLP HTTP exporter |
+| Tempo | `tracing` | Trace store (SingleBinary, local backend) |
+| Grafana | `monitoring` | Explore → Tempo |
+
+Values / config:
+
+- `infra/tracing/tempo-values.yaml`
+- Helm `global.otelExporterOtlpEndpoint`: `http://tempo.tracing.svc.cluster.local:4318/v1/traces`
+- Each app Deployment sets:
+  - `OTEL_SERVICE_NAME` = `{{ .Values.<service>.image }}` (`auth`, `tickets`, …)
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` = that global URL
+
+`tracing.ts` uses `resourceFromAttributes({ [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME })`. FS auto-instrumentation is disabled to keep traces readable.
+
+### NATS context propagation
+
+NATS Streaming has no headers, so W3C `traceparent` is carried on the event body as `_traceContext`.
+
+1. **Publisher** (`common`): `propagation.inject(context.active(), carrier)` then publishes `{ ...data, _traceContext }`. The NATS ack callback is wrapped in `context.with(activeContext)` so `"Event published"` keeps the same `trace_id`.
+2. **Listener** (`common`): strips `_traceContext`, `propagation.extract(...)`, then runs the log + `onMessage` inside `context.with(extractedContext)`.
+
+Immediate listeners (tickets reserve, payments store order, expiration *schedules* the job) stay on the **same trace** as `POST /api/orders`.
+
+### Bull delayed jobs (span links, not parent-child)
+
+A 15-minute delay must **not** be a child of the HTTP request — Tempo would show the order-creation trace as ~15 minutes.
+
+- `order-created-listener` still stores `_traceContext` on the Bull job.
+- `expiration-queue` starts a **new root span** (`process order expiration`) and **links** it to the original span.
+
+Result:
+
+- **Trace A** — `POST /api/orders` + immediate NATS work (~hundreds of ms)
+- **Trace B** — Bull job + `expiration:complete` (few ms), with a link back to Trace A
+
+Inspect delayed jobs in Redis:
+
+```bash
+kubectl exec -it deploy/expiration-redis-depl -- redis-cli
+KEYS bull:order:expiration:*
+ZRANGE bull:order:expiration:delayed 0 -1 WITHSCORES
+HGETALL bull:order:expiration:1
+```
+
 ### `app` vs `service` (important)
 
 | Field | Source | Example |
 |-------|--------|---------|
 | **`app`** | Kubernetes pod label (`app: orders`) → Loki stream label | `{app="orders"}` |
-| **`service`** | Pino `base.service` inside JSON | `"service":"orders"` or `"service":"nats"` |
+| **`service`** | Pino `base.service` (from `OTEL_SERVICE_NAME`, or `"nats"` in base classes) | `"service":"orders"` or `"service":"nats"` |
 
 NATS base-class logs run **inside** the orders/tickets/… pod, so Loki shows `app=orders` with `service=nats`.
 
@@ -266,6 +318,7 @@ Filter examples:
 ```logql
 {app="orders"} | json | service="orders"
 {app="orders"} | json | service="nats"
+{app=~"auth|tickets|orders|payments|expiration"} | json | trace_id="14e47ddb5defc03bb191eeb0449d95e2"
 ```
 
 ### Publishing common
@@ -276,7 +329,7 @@ npm run build
 # version already set in package.json when bumping
 npm publish --access public
 # then in each service:
-npm install @kumar-chaitanya/common-ticketing-service@^1.0.4
+npm install @kumar-chaitanya/common-ticketing-service@^1.0.7
 ```
 
 Do **not** run `npm version` again if you already bumped `package.json` manually.
@@ -308,6 +361,10 @@ kubectl create namespace logging
 helm upgrade --install loki grafana/loki -n logging -f infra/logging/loki-values.yaml
 helm upgrade --install promtail grafana/promtail -n logging -f infra/logging/promtail-values.yaml
 
+# Tracing stack
+kubectl create namespace tracing
+helm upgrade --install tempo grafana/tempo -n tracing -f infra/tracing/tempo-values.yaml
+
 # Grafana Loki datasource (monitoring stack)
 helm upgrade monitoring prometheus-community/kube-prometheus-stack `
   -n monitoring -f infra/monitoring/custom_kube_prometheus_stack.yaml --reuse-values
@@ -315,6 +372,11 @@ helm upgrade monitoring prometheus-community/kube-prometheus-stack `
 # App ServiceMonitors (if not already applied)
 kubectl apply -f infra/monitoring/servicemonitors.yaml
 ```
+
+Add a Tempo datasource in Grafana if it is not already there:
+
+- Type: Tempo
+- URL: `http://tempo.tracing.svc.cluster.local:3200`
 
 ## Grafana dashboards (revision)
 
@@ -338,6 +400,14 @@ Login: `admin` / `prom-operator` (from values).
 | Exact error counters | Stat (Instant) | `sum by (job, status_code) (http_requests_total{status_code=~"4..\|5.."})` |
 | App logs | Logs | `{app=~"auth\|tickets\|orders\|payments\|expiration"}` |
 | Warn/error logs | Logs | `{app=~"auth\|tickets\|orders\|payments\|expiration"} \| json \| level >= 40` |
+| Logs for one trace | Logs | `{app=~"auth\|tickets\|orders\|payments\|expiration"} \| json \| trace_id="<id>"` |
+
+### Traces (Grafana Explore → Tempo)
+
+1. Create an order (or any HTTP request).
+2. Explore → Tempo → Search by service name (`orders`, `tickets`, …) or paste `trace_id` from a Loki log.
+3. Order creation should show one connected trace: orders HTTP → NATS `order:created` → tickets / payments / expiration (schedule only).
+4. After the delay, a **separate** expiration trace appears, linked to the original (not a 15-minute child span).
 
 ### Prometheus gotchas (worth memorizing)
 
@@ -356,8 +426,9 @@ Login: `admin` / `prom-operator` (from values).
 | Events | NATS Streaming |
 | Shared | `@kumar-chaitanya/common-ticketing-service` (npm) |
 | Metrics | `prom-client`, Prometheus Operator ServiceMonitors |
-| Logs | Pino → Promtail → Loki |
-| UI | Grafana (Prometheus + Loki datasources) |
+| Logs | Pino → Promtail → Loki (`trace_id` via Pino auto-instrumentation) |
+| Traces | OpenTelemetry NodeSDK → Tempo (OTLP HTTP) |
+| UI | Grafana (Prometheus + Loki + Tempo) |
 | Deploy | Docker, Kubernetes, Helm, Skaffold |
 | Ingress | NGINX Ingress Controller |
 
@@ -366,25 +437,27 @@ Login: `admin` / `prom-operator` (from values).
 ```text
 ticketing/
 ├── auth/ tickets/ orders/ payments/ expiration/ client/
-├── common/                 # Shared npm library (Logger, Metrics, events, errors)
+├── common/                 # Shared npm library (Logger, Metrics, events, NATS trace context)
 ├── infra/
 │   ├── helm/ticketing/     # App Helm chart (Skaffold deploys this)
 │   ├── k8s/                # Older raw manifests (reference)
 │   ├── monitoring/         # Prometheus values + ServiceMonitors
-│   └── logging/            # Loki + Promtail values
+│   ├── logging/            # Loki + Promtail values
+│   └── tracing/            # Tempo values
 ├── nats-test/              # Local NATS experiments
 ├── skaffold.yaml
 └── readme.MD
 ```
 
-Per-service logging pattern:
+Per-service observability pattern:
 
 ```text
-src/logger.ts          # new Logger('<service>')
+src/tracing.ts         # NodeSDK first; OTEL_SERVICE_NAME + OTLP endpoint
+src/logger.ts          # new Logger(process.env.OTEL_SERVICE_NAME || '<service>')
 src/app.ts             # requestLogger + errorHandler(logger) + Metrics
-src/index.ts           # startup logs
+src/index.ts           # import './tracing' first, then startup logs
 src/nats-wrapper.ts    # Connected to NATS
-src/events/listeners/  # domain success logs
+src/events/listeners/  # domain success logs (inherit extracted NATS context)
 ```
 
 ## Getting Started
@@ -450,6 +523,7 @@ kubectl rollout restart deployment/auth-depl
 # Observability
 kubectl get pods -n monitoring
 kubectl get pods -n logging
+kubectl get pods -n tracing
 kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
 helm list -A
 ```
@@ -467,14 +541,16 @@ helm list -A
 | **Shared kernel** | `common` npm package |
 | **Metrics** | RED-ish: rate, errors, duration via Prometheus |
 | **Logs** | Structured JSON for aggregation (Loki) |
-| **Correlation** | Not implemented yet (next: request IDs / tracing) |
+| **Distributed tracing** | OpenTelemetry + Tempo; W3C context on NATS `_traceContext` |
+| **Span vs link** | Parent-child for immediate work; span **links** for delayed Bull jobs |
+| **Correlation** | Same `trace_id` on Pino logs and Tempo spans |
 | **GitOps/CI mental model** | Local = Skaffold; real prod = CI builds immutable tags, CD deploys |
 
 ### Suggested next steps (not done yet)
 
+- Grafana Tempo ↔ Loki links (trace → logs and log → trace)
 - Alerting rules (Prometheus / Alertmanager)
-- Request correlation IDs across services
-- OpenTelemetry traces (Tempo / Jaeger)
+- Kubernetes readiness / liveness probes
 - Persist Mongo with PVCs
 - Export Grafana dashboard JSON into the repo
 
@@ -485,3 +561,4 @@ helm list -A
 - Mongo pods are ephemeral unless you add PVCs.
 - Stripe publishable key lives in the client; secret key is a K8s secret.
 - Helm chart app images omit an explicit tag → `:latest` unless Skaffold injects a digest/tag.
+- Tempo uses the deprecated `grafana/tempo` SingleBinary chart — fine for local/learning; production would use `tempo-distributed`.
