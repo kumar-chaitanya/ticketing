@@ -1,0 +1,4 @@
+# Ships cluster pod logs to Loki in the `logging` namespace
+config:
+  clients:
+    - url: http://loki-gateway.logging.svc.cluster.local/loki/api/v1/push
